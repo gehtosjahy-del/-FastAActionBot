@@ -4,20 +4,19 @@ A powerful Telegram utility bot with multiple features.
 
 ## Features
 
-- 🖼️ Image Compression
-- 🔗 URL Shortening  
-- 📱 QR Code Generation
-- 🔄 Image Format Conversion (JPG/PNG/WebP)
+- 🖼️ **Image Compression** - Reduce image size by up to 90%
+- 🔗 **URL Shortening** - Shorten long URLs instantly
+- 📱 **QR Code Generation** - Create QR codes from text
+- 🔄 **Format Conversion** - Convert JPG↔PNG↔WebP
 
-## Quick Deploy to Railway
+## Commands
 
-1. Fork this repository to GitHub
-2. Create bot via @BotFather on Telegram
-3. Deploy on Railway from GitHub
-4. Add environment variables:
-   - `TELEGRAM_BOT_TOKEN`
-   - `WEBHOOK_SECRET`
-   - `RAILWAY_URL`
+- `/start` - Show main menu
+- `/help` - Show help
+- `/compress` - Compress an image
+- `/shorten` - Shorten a URL
+- `/qr [text]` - Generate QR code
+- `/convert` - Convert image format
 
 ## Environment Variables
 
@@ -26,6 +25,14 @@ A powerful Telegram utility bot with multiple features.
 | TELEGRAM_BOT_TOKEN | Bot token from @BotFather |
 | WEBHOOK_SECRET | Secret key for webhook |
 | RAILWAY_URL | Your Railway app URL |
+
+## Deployment on Railway
+
+1. Create bot via @BotFather
+2. Push this code to GitHub
+3. Deploy on Railway from GitHub
+4. Add environment variables
+5. Test with /start command
 
 ## Local Development
 
