@@ -19,7 +19,8 @@ WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "default_secret_here")
 RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://your-app.up.railway.app")
 
 if not TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
+    print("❌ TELEGRAM_BOT_TOKEN environment variable is required")
+    exit(1)
 
 # ============================================
 # LOGGING SETUP
@@ -475,6 +476,8 @@ def set_webhook():
 
 def main():
     """Main application entry point"""
+    logger.info("🚀 Starting FastAActionBot...")
+    
     # Register Telegram handlers
     bot_app.add_handler(CommandHandler("start", start_command))
     bot_app.add_handler(CommandHandler("help", help_command))
@@ -489,10 +492,15 @@ def main():
     ))
     
     # Set webhook
-    set_webhook()
+    webhook_result = set_webhook()
+    if webhook_result and webhook_result.get('ok'):
+        logger.info("✅ Webhook configured successfully")
+    else:
+        logger.warning("⚠️ Webhook configuration failed")
     
     # Start Flask server
     port = int(os.environ.get("PORT", 5000))
+    logger.info(f"🌐 Starting Flask server on port {port}")
     flask_app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
