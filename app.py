@@ -31,18 +31,15 @@ RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://your-app.up.railway.app")
 PORT = int(os.environ.get("PORT", 5000))
 
 # Log configuration status
-if not TOKEN:
-    logger.warning("⚠️ TELEGRAM_BOT_TOKEN not set. Bot will not respond to messages.")
-    BOT_ENABLED = False
-else:
-    logger.info("✅ TELEGRAM_BOT_TOKEN is set")
-    BOT_ENABLED = True
-
+logger.info("=" * 50)
+logger.info("🚀 FastAActionBot Starting...")
+logger.info(f"🤖 Bot enabled: {bool(TOKEN)}")
+logger.info(f"🔑 Token configured: {bool(TOKEN)}")
 logger.info(f"🌐 PORT: {PORT}")
-logger.info(f"🔗 RAILWAY_URL: {RAILWAY_URL}")
+logger.info("=" * 50)
 
 # ============================================
-# FLASK APP
+# FLASK APP (MUST BE GLOBAL FOR GUNICORN)
 # ============================================
 
 flask_app = Flask(__name__)
@@ -52,14 +49,20 @@ flask_app = Flask(__name__)
 # ============================================
 
 bot_app = None
-if BOT_ENABLED:
+BOT_ENABLED = False
+
+if TOKEN:
     try:
         bot_app = Application.builder().token(TOKEN).build()
-        logger.info("✅ Telegram bot initialized")
+        BOT_ENABLED = True
+        logger.info("✅ Telegram bot initialized successfully")
     except Exception as e:
         logger.error(f"❌ Failed to initialize bot: {e}")
         bot_app = None
         BOT_ENABLED = False
+else:
+    logger.warning("⚠️ TELEGRAM_BOT_TOKEN not set. Bot will not respond to messages.")
+    logger.info("💡 Add TELEGRAM_BOT_TOKEN environment variable to enable bot features")
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -483,8 +486,26 @@ def webhook_info():
         return jsonify({"error": str(e)}), 500
 
 # ============================================
-# WEBHOOK SETUP
+# SETUP TELEGRAM HANDLERS
 # ============================================
+
+def setup_telegram_handlers():
+    """Set up all telegram handlers"""
+    if BOT_ENABLED and bot_app:
+        bot_app.add_handler(CommandHandler("start", start_command))
+        bot_app.add_handler(CommandHandler("help", help_command))
+        bot_app.add_handler(CommandHandler("compress", compress_command))
+        bot_app.add_handler(CommandHandler("shorten", shorten_command))
+        bot_app.add_handler(CommandHandler("qr", qr_command))
+        bot_app.add_handler(CommandHandler("convert", convert_command))
+        bot_app.add_handler(CallbackQueryHandler(button_callback))
+        bot_app.add_handler(MessageHandler(
+            filters.TEXT | filters.PHOTO | filters.Document.IMAGE,
+            handle_message
+        ))
+        logger.info("✅ Telegram handlers registered")
+        return True
+    return False
 
 def set_webhook():
     """Set the webhook URL for the bot"""
@@ -511,43 +532,26 @@ def set_webhook():
         return None
 
 # ============================================
-# MAIN ENTRY POINT
+# AUTO-SETUP ON STARTUP (for gunicorn)
+# ============================================
+
+# This runs automatically when gunicorn starts
+if BOT_ENABLED and bot_app:
+    setup_telegram_handlers()
+    set_webhook()
+else:
+    logger.info("ℹ️ Bot is disabled. Add TELEGRAM_BOT_TOKEN to enable.")
+
+logger.info("✅ FastAActionBot is ready!")
+
+# ============================================
+# MAIN ENTRY POINT (for local development)
 # ============================================
 
 if __name__ == "__main__":
     logger.info("=" * 50)
-    logger.info("🚀 Starting FastAActionBot...")
-    logger.info(f"🐍 Python version: {sys.version}")
-    logger.info(f"📦 Flask app: {flask_app.name}")
-    logger.info(f"🤖 Bot enabled: {BOT_ENABLED}")
-    logger.info(f"🔑 Token configured: {bool(TOKEN)}")
-    logger.info(f"🌐 Port: {PORT}")
+    logger.info("🚀 Starting FastAActionBot in development mode...")
     logger.info("=" * 50)
-    
-    if BOT_ENABLED and bot_app:
-        # Register Telegram handlers
-        bot_app.add_handler(CommandHandler("start", start_command))
-        bot_app.add_handler(CommandHandler("help", help_command))
-        bot_app.add_handler(CommandHandler("compress", compress_command))
-        bot_app.add_handler(CommandHandler("shorten", shorten_command))
-        bot_app.add_handler(CommandHandler("qr", qr_command))
-        bot_app.add_handler(CommandHandler("convert", convert_command))
-        bot_app.add_handler(CallbackQueryHandler(button_callback))
-        bot_app.add_handler(MessageHandler(
-            filters.TEXT | filters.PHOTO | filters.Document.IMAGE,
-            handle_message
-        ))
-        logger.info("✅ Telegram handlers registered")
-        
-        # Set webhook
-        webhook_result = set_webhook()
-        if webhook_result and webhook_result.get('ok'):
-            logger.info("✅ Webhook configured successfully")
-        else:
-            logger.warning("⚠️ Webhook configuration failed")
-    else:
-        logger.warning("⚠️ Bot running without token - only health checks work")
-        logger.info("💡 Add TELEGRAM_BOT_TOKEN environment variable to enable bot features")
     
     # Start Flask server
     logger.info(f"🌐 Starting Flask server on 0.0.0.0:{PORT}")
