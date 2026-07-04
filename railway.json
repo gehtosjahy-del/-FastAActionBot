@@ -3,8 +3,8 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "gunicorn --bind 0.0.0.0:5000 app:flask_app",
     "healthcheckPath": "/health",
-    "restartPolicyType": "ON_FAILURE"
+    "restartPolicyType": "ON_FAILURE",
+    "timeout": 300
   }
 }
