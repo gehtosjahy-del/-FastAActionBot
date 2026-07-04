@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import tempfile
 import hashlib
@@ -11,22 +12,7 @@ import requests
 from PIL import Image
 
 # ============================================
-# CONFIGURATION
-# ============================================
-
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "default_secret_here")
-RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://your-app.up.railway.app")
-
-# DON'T exit - just log a warning so health checks pass
-if not TOKEN:
-    logging.warning("⚠️ TELEGRAM_BOT_TOKEN not set. Bot will not respond to messages.")
-    BOT_ENABLED = False
-else:
-    BOT_ENABLED = True
-
-# ============================================
-# LOGGING SETUP
+# LOGGING SETUP (do this first)
 # ============================================
 
 logging.basicConfig(
@@ -36,16 +22,44 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================
-# FLASK APP & TELEGRAM BOT
+# CONFIGURATION
+# ============================================
+
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "default_secret_here")
+RAILWAY_URL = os.environ.get("RAILWAY_URL", "https://your-app.up.railway.app")
+PORT = int(os.environ.get("PORT", 5000))
+
+# Log configuration status
+if not TOKEN:
+    logger.warning("⚠️ TELEGRAM_BOT_TOKEN not set. Bot will not respond to messages.")
+    BOT_ENABLED = False
+else:
+    logger.info("✅ TELEGRAM_BOT_TOKEN is set")
+    BOT_ENABLED = True
+
+logger.info(f"🌐 PORT: {PORT}")
+logger.info(f"🔗 RAILWAY_URL: {RAILWAY_URL}")
+
+# ============================================
+# FLASK APP
 # ============================================
 
 flask_app = Flask(__name__)
 
-# Only create bot if token exists
+# ============================================
+# TELEGRAM BOT (initialize if enabled)
+# ============================================
+
+bot_app = None
 if BOT_ENABLED:
-    bot_app = Application.builder().token(TOKEN).build()
-else:
-    bot_app = None
+    try:
+        bot_app = Application.builder().token(TOKEN).build()
+        logger.info("✅ Telegram bot initialized")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize bot: {e}")
+        bot_app = None
+        BOT_ENABLED = False
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -420,7 +434,8 @@ def index():
         "status": "running",
         "bot": "FastAActionBot",
         "version": "2.0.0",
-        "bot_enabled": BOT_ENABLED
+        "bot_enabled": BOT_ENABLED,
+        "port": PORT
     })
 
 @flask_app.route('/health', methods=['GET'])
@@ -430,7 +445,7 @@ def health():
         "status": "healthy",
         "bot_enabled": BOT_ENABLED,
         "token_configured": bool(TOKEN)
-    })
+    }), 200
 
 @flask_app.route('/signal', methods=['POST'])
 async def webhook():
@@ -478,6 +493,7 @@ def set_webhook():
         return None
     
     webhook_url = f"{RAILWAY_URL}/signal"
+    logger.info(f"🔗 Setting webhook to: {webhook_url}")
     
     try:
         response = requests.post(
@@ -488,21 +504,25 @@ def set_webhook():
             }
         )
         result = response.json()
-        logger.info(f"Webhook set: {result}")
+        logger.info(f"📡 Webhook response: {result}")
         return result
     except Exception as e:
-        logger.error(f"Failed to set webhook: {e}")
+        logger.error(f"❌ Failed to set webhook: {e}")
         return None
 
 # ============================================
 # MAIN ENTRY POINT
 # ============================================
 
-def main():
-    """Main application entry point"""
+if __name__ == "__main__":
+    logger.info("=" * 50)
     logger.info("🚀 Starting FastAActionBot...")
-    logger.info(f"Bot enabled: {BOT_ENABLED}")
-    logger.info(f"Token configured: {bool(TOKEN)}")
+    logger.info(f"🐍 Python version: {sys.version}")
+    logger.info(f"📦 Flask app: {flask_app.name}")
+    logger.info(f"🤖 Bot enabled: {BOT_ENABLED}")
+    logger.info(f"🔑 Token configured: {bool(TOKEN)}")
+    logger.info(f"🌐 Port: {PORT}")
+    logger.info("=" * 50)
     
     if BOT_ENABLED and bot_app:
         # Register Telegram handlers
@@ -517,6 +537,7 @@ def main():
             filters.TEXT | filters.PHOTO | filters.Document.IMAGE,
             handle_message
         ))
+        logger.info("✅ Telegram handlers registered")
         
         # Set webhook
         webhook_result = set_webhook()
@@ -529,9 +550,5 @@ def main():
         logger.info("💡 Add TELEGRAM_BOT_TOKEN environment variable to enable bot features")
     
     # Start Flask server
-    port = int(os.environ.get("PORT", 5000))
-    logger.info(f"🌐 Starting Flask server on port {port}")
-    flask_app.run(host="0.0.0.0", port=port)
-
-if __name__ == "__main__":
-    main()
+    logger.info(f"🌐 Starting Flask server on 0.0.0.0:{PORT}")
+    flask_app.run(host="0.0.0.0", port=PORT, debug=False)
